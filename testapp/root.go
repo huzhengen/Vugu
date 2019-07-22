@@ -6,9 +6,59 @@ import "fmt"
 import "reflect"
 import "github.com/vugu/vugu"
 
-type RootData struct{ Show bool }
+import "encoding/json"
+import "net/http"
+import "log"
 
-func (data *RootData) Toggle() { data.Show = !data.Show }
+type RootData struct {
+	bpi       bpi
+	isLoading bool
+}
+
+type bpi struct {
+	Time struct {
+		Updated string `json:"updated"`
+	} `json:"time"`
+	BPI map[string]struct {
+		Code      string  `json:"code"`
+		Symbol    string  `json:"symbol"`
+		RateFloat float64 `json:"rate_float"`
+	} `json:"bpi"`
+}
+
+func (data *RootData) HandleClick(event *vugu.DOMEvent) {
+
+	data.bpi = bpi{}
+
+	ee := event.EventEnv()
+
+	go func() {
+
+		ee.Lock()
+		data.isLoading = true
+		ee.UnlockRender()
+
+		res, err := http.Get("https://api.coindesk.com/v1/bpi/currentprice.json")
+		if err != nil {
+			log.Printf("Error fetch()ing: %v", err)
+			return
+		}
+		defer res.Body.Close()
+
+		var newb bpi
+		err = json.NewDecoder(res.Body).Decode(&newb)
+		if err != nil {
+			log.Printf("Error JSON decoding: %v", err)
+			return
+		}
+
+		ee.Lock()
+		defer ee.UnlockRender()
+		data.bpi = newb
+		data.isLoading = false
+
+	}()
+}
 
 var _ vugu.ComponentType = (*Root)(nil)
 
@@ -19,48 +69,100 @@ func (comp *Root) BuildVDOM(dataI interface{}) (vdom *vugu.VGNode, css *vugu.VGN
 	_ = reflect.Value{}
 	event := vugu.DOMEventStub
 	_ = event
-	css = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "style", DataAtom: vugu.VGAtom(458501), Namespace: "", Attr: []vugu.VGAttribute(nil)}
-	css.AppendChild(&vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n.my-first-vugu-comp { background: #eee; }\n", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)})
 	var n *vugu.VGNode
-	n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "div", DataAtom: vugu.VGAtom(92931), Namespace: "", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "my-first-vugu-comp"}}}
+	n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "div", DataAtom: vugu.VGAtom(92931), Namespace: "", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "demo"}}}
 	vdom = n
 	{
 		parent := n
 		n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
 		parent.AppendChild(n)
-		n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "button", DataAtom: vugu.VGAtom(102662), Namespace: "", Attr: []vugu.VGAttribute(nil)}
-		parent.AppendChild(n)
-		// @click = { data.Toggle() }
-		{
-			var i_ interface{} = data
-			idat_ := reflect.ValueOf(&i_).Elem().InterfaceData()
-			var i2_ interface{} = data.Toggle
-			i2dat_ := reflect.ValueOf(&i2_).Elem().InterfaceData()
-			n.SetDOMEventHandler("click", vugu.DOMEventHandler{
-				ReceiverAndMethodHash: uint64(idat_[0]) ^ uint64(idat_[1]) ^ uint64(i2dat_[0]) ^ uint64(i2dat_[1]),
-				Method:                reflect.ValueOf(data).MethodByName("Toggle"),
-				Args:                  []interface{}{},
-			})
-		}
-		if false {
-			// force compiler to check arguments for type safety
-			data.Toggle()
-		}
-		{
-			parent := n
-			n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Test", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
-			parent.AppendChild(n)
-		}
-		n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
-		parent.AppendChild(n)
-		if data.Show {
+		if data.isLoading {
 			n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "div", DataAtom: vugu.VGAtom(92931), Namespace: "", Attr: []vugu.VGAttribute(nil)}
 			parent.AppendChild(n)
 			{
 				parent := n
-				n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "I am here!", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+				n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Loading...", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
 				parent.AppendChild(n)
 			}
+		}
+		n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+		parent.AppendChild(n)
+		if len(data.bpi.BPI) > 0 {
+			n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "div", DataAtom: vugu.VGAtom(92931), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+			parent.AppendChild(n)
+			{
+				parent := n
+				n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+				parent.AppendChild(n)
+				n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "div", DataAtom: vugu.VGAtom(92931), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+				parent.AppendChild(n)
+				{
+					parent := n
+					n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Updated: ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+					parent.AppendChild(n)
+					n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "span", DataAtom: vugu.VGAtom(40708), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+					parent.AppendChild(n)
+					n.InnerHTML = fmt.Sprint(data.bpi.Time.Updated)
+				}
+				n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+				parent.AppendChild(n)
+				n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "ul", DataAtom: vugu.VGAtom(42754), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+				parent.AppendChild(n)
+				{
+					parent := n
+					n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n            ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+					parent.AppendChild(n)
+					for key, value := range data.bpi.BPI {
+						_, _ = key, value
+						n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "li", DataAtom: vugu.VGAtom(45570), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+						parent.AppendChild(n)
+						{
+							parent := n
+							n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n                ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+							parent.AppendChild(n)
+							n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "span", DataAtom: vugu.VGAtom(40708), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+							parent.AppendChild(n)
+							n.InnerHTML = fmt.Sprint(key)
+							n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: " ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+							parent.AppendChild(n)
+							n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "span", DataAtom: vugu.VGAtom(40708), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+							parent.AppendChild(n)
+							n.InnerHTML = fmt.Sprint(fmt.Sprint(value.Symbol, value.RateFloat))
+							n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n            ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+							parent.AppendChild(n)
+						}
+					}
+					n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+					parent.AppendChild(n)
+				}
+				n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+				parent.AppendChild(n)
+			}
+		}
+		n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    ", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+		parent.AppendChild(n)
+		n = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "button", DataAtom: vugu.VGAtom(102662), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+		parent.AppendChild(n)
+		// @click = { data.HandleClick(event) }
+		{
+			var i_ interface{} = data
+			idat_ := reflect.ValueOf(&i_).Elem().InterfaceData()
+			var i2_ interface{} = data.HandleClick
+			i2dat_ := reflect.ValueOf(&i2_).Elem().InterfaceData()
+			n.SetDOMEventHandler("click", vugu.DOMEventHandler{
+				ReceiverAndMethodHash: uint64(idat_[0]) ^ uint64(idat_[1]) ^ uint64(i2dat_[0]) ^ uint64(i2dat_[1]),
+				Method:                reflect.ValueOf(data).MethodByName("HandleClick"),
+				Args:                  []interface{}{event},
+			})
+		}
+		if false {
+			// force compiler to check arguments for type safety
+			data.HandleClick(event)
+		}
+		{
+			parent := n
+			n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Fetch Bitcoin Price Index", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
+			parent.AppendChild(n)
 		}
 		n = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n", DataAtom: vugu.VGAtom(0), Namespace: "", Attr: []vugu.VGAttribute(nil)}
 		parent.AppendChild(n)
